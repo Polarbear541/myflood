@@ -2,7 +2,7 @@ Plugin Info:
 Name: MyFlood
 Description: A plugin which allows you to prevent flooding through new posts and new threads per usergroup.
 Author: Polarbear541
-Version: 1.2
+Version: 1.3
 Compatibility: 1.6.x
 Files: 2 (1 plugin and 1 language)
 Database changes: 2 (2 columns added into usergroups table)
@@ -16,11 +16,11 @@ Upload ./inc/plugins/myflood.php to ./inc/plugins/
 Upload ./inc/languages/myflood.lang.php to ./inc/languages/english/
 Go to ACP > Plugins > Install & Activate
 Then define the time between new threads and new posts in the 'Forums and Posts' tab when editing a usergroup.
-You can also edit the settings to enable/disable parts of the system and make the system count new threads as posts.
+You can also edit the settings to enable/disable parts of the system and make the system count new threads as posts. You can also add excluded forums.
 
 Important Note: Make sure you only have either the inbuilt MyBB post flood protection or the MyFlood post flood protection enabled or you may get unexpected results. Ideally you should turn the inbuilt feature off if you are using this plugin.
 
-Update Instructions (1.0 -> 1.2 and 1.1 -> 1.2):
+Update Instructions:
 Upload new files overwriting the old ones. 
 Reinstall to add the new settings then configure to your desire. 
 (Reinstalling will remove your existing values for thread flood protection)

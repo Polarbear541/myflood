@@ -15,11 +15,14 @@ $plugins->add_hook("admin_user_groups_edit_commit", "myflood_perm_submit");
 
 function myflood_info()
 {
+	global $lang;
+	$lang->load("myflood");
 	return array(
-		"name"			=> "MyFlood",
-		"description"	=> "A plugin which allows you to prevent flooding through new posts and new threads per usergroup.",
+		"name"			=> $lang->myflood,
+		"description"	=> $lang->myflood_desc,
 		"author"		=> "Polarbear541",
-		"version"		=> "1.2",
+		"website"		=> "http://community.mybb.com/thread-123207.html",
+		"version"		=> "1.3",
 		"compatibility" => "16*",
 		"guid" 			=> "2ffa3c273c4b27a258a3a7f1d7ee336c"
 	);
@@ -27,7 +30,8 @@ function myflood_info()
 
 function myflood_install() //When plugin installed
 {
-	global $db, $cache;
+	global $db, $cache, $lang;
+	$lang->load("myflood");
 	//Add column to DB if doesn't already exist
 	if(!$db->field_exists("timebtwnthreads", "usergroups"))
 	{
@@ -44,8 +48,8 @@ function myflood_install() //When plugin installed
 	$setting_group = array(
 		'gid'			=> 'NULL',
 		'name'			=> 'myflood',
-		'title'			=> 'MyFlood Settings',
-		'description'	=> 'Settings for MyFlood.',
+		'title'			=> $lang->myflood_settings,
+		'description'	=> $lang->myflood_settings_desc,
 		'disporder'		=> "1",
 		'isdefault'		=> 'no',
 	);
@@ -54,36 +58,47 @@ function myflood_install() //When plugin installed
 	
 	$setting_one = array(
 		'name'			=> 'myflood_posts_onoff',
-		'title'			=> 'MyFlood Post Flood On/Off',
-		'description'	=> 'Turns the MyFlood post flood protection on and off for all usergroups',
+		'title'			=> $lang->myflood_posts,
+		'description'	=> $lang->myflood_posts_desc,
 		'optionscode'	=> 'yesno',
 		'value'			=> '1',
 		'disporder'		=> 1,
-		'gid'			=> intval($gid),
+		'gid'			=> intval($gid)
 	);
 	$db->insert_query('settings', $setting_one);
 
 	$setting_two = array(
 		'name'			=> 'myflood_threads_onoff',
-		'title'			=> 'MyFlood Thread Flood On/Off',
-		'description'	=> 'Turns the MyFlood thread flood protection on and off for all usergroups',
+		'title'			=> $lang->myflood_threads,
+		'description'	=> $lang->myflood_threads_desc,
 		'optionscode'	=> 'yesno',
 		'value'			=> '1',
 		'disporder'		=> 2,
-		'gid'			=> intval($gid),
+		'gid'			=> intval($gid)
 	);
 	$db->insert_query('settings', $setting_two);
 
 	$setting_three = array(
 		'name'			=> 'myflood_ptflood',
-		'title'			=> 'MyFlood post flood includes new threads?',
-		'description'	=> 'If this is set to yes then the post flood protection will count new threads as posts. For this to work the option above must be enabled.',
+		'title'			=> $lang->myflood_ptflood,
+		'description'	=> $lang->myflood_ptflood_desc,
 		'optionscode'	=> 'yesno',
 		'value'			=> '1',
 		'disporder'		=> 3,
-		'gid'			=> intval($gid),
+		'gid'			=> intval($gid)
 	);
 	$db->insert_query('settings', $setting_three);
+	
+	$setting_four = array(
+		'name'			=> 'myflood_exforums',
+		'title'			=> $lang->myflood_exforums,
+		'description'	=> $lang->myflood_exforums_desc,
+		'optionscode'	=> 'text',
+		'value'			=> '',
+		'disporder'		=> 4,
+		'gid'			=> intval($gid)
+	);
+	$db->insert_query('settings', $setting_four);
 	
 	rebuild_settings();
 }
@@ -111,17 +126,25 @@ function myflood_uninstall() //When plugin uninstalled
 	$cache->update_usergroups();
 	
 	//Remove and rebuild settings
-	$db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name IN ('myflood_onoff','myflood_ptflood')");
+	$db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name IN ('myflood_posts_onoff','myflood_ptflood','myflood_threads_onoff','myflood_exforums')");
 	$db->query("DELETE FROM ".TABLE_PREFIX."settinggroups WHERE name='myflood'");
 	rebuild_settings(); 
 }
 
 function myflood_posts() //When post is being created run flood checks
 {
-	global $mybb, $lang, $db;
+	global $mybb, $lang, $db, $thread;
 	$lang->load("myflood");
-	//If time between posts isn't disabled for current usergroup
-	if($mybb->usergroup['timebtwnposts'] != 0 && $mybb->settings['myflood_posts_onoff'] != 0)
+	if(!empty($mybb->settings['myflood_exforums']))
+	{
+		$exforums = explode(",",$mybb->settings['myflood_exforums']);
+	}
+	else
+	{
+		$exforums = array();
+	}
+	//If time between posts isn't disabled for current usergroup and flood for posts is on. Also checks for excluded forums.
+	if($mybb->usergroup['timebtwnposts'] != 0 && $mybb->settings['myflood_posts_onoff'] != 0 && !in_array($thread['fid'],$exforums))
 	{
 		//Find last post timestamp
 		if($mybb->settings['myflood_ptflood'] == 1)
@@ -152,10 +175,18 @@ function myflood_posts() //When post is being created run flood checks
 
 function myflood_threads() //When thread is being created run flood checks
 {
-	global $mybb, $lang, $db;
+	global $mybb, $lang, $db, $fid;
 	$lang->load("myflood");
-	//If time between threads isn't disabled for current usergroup
-	if($mybb->usergroup['timebtwnthreads'] != 0 && $mybb->settings['myflood_threads_onoff'] != 0)
+	if(!empty($mybb->settings['myflood_exforums']))
+	{
+		$exforums = explode(",",$mybb->settings['myflood_exforums']);
+	}
+	else
+	{
+		$exforums = array();
+	}
+	//If time between threads isn't disabled for current usergroup and flood for threads is on. Also checks excluded forums.
+	if($mybb->usergroup['timebtwnthreads'] != 0 && $mybb->settings['myflood_threads_onoff'] != 0 && !in_array($fid,$exforums))
 	{
 		//Find last thread timestamp
 		$qry = $db->simple_select("threads", "dateline", "uid='{$mybb->user['uid']}'", array("order_by" => 'dateline', "order_dir" => 'DESC'));
